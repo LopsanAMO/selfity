@@ -1,0 +1,65 @@
+version: '3'
+services:
+  mongodb:
+    image: mongo:latest
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${DB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${DB_PASS}
+      - MONGO_INITDB_DATABASE=${DB_NAME}
+    ports:
+      - 27017:27017
+  app:
+    build:
+      context: .
+      dockerfile: DockerfileProd
+    restart: always
+    volumes:
+      - static-data:/vol/web
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - SMSURL=${SMSURL}
+      - SMSAPIKEY=${SMSAPIKEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DJANGO_AWS_STORAGE_BUCKET_NAME=${DJANGO_AWS_STORAGE_BUCKET_NAME}
+      - DJANGO_AWS_SECRET_ACCESS_KEY=${DJANGO_AWS_SECRET_ACCESS_KEY}
+      - DJANGO_AWS_ACCESS_KEY_ID=${DJANGO_AWS_ACCESS_KEY_ID}
+      - DJANGO_CONFIGURATION=${DJANGO_CONFIGURATION}
+    depends_on:
+      - redis
+      - mongodb
+
+  redis:
+    image: redis:6-alpine
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6019:6379"
+
+  proxy:
+    build:
+      context: ./proxy
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - 80:8000
+    volumes:
+      - static-data:/vol/static
+
+volumes:
+  postgres-data:
+  static-data:
+  redis-data:
+
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 172.25.0.0/24
+         gateway: 172.25.0.1

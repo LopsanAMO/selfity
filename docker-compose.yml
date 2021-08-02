@@ -1,0 +1,78 @@
+version: '3'
+services:
+  mongodb:
+    image: mongo:latest
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${DB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${DB_PASS}
+      - MONGO_INITDB_DATABASE=${DB_NAME}
+    ports:
+      - 27017:27017
+  web:
+    restart: always
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - SMSURL=${SMSURL}
+      - SMSAPIKEY=${SMSAPIKEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DJANGO_AWS_STORAGE_BUCKET_NAME=${DJANGO_AWS_STORAGE_BUCKET_NAME}
+      - DJANGO_AWS_SECRET_ACCESS_KEY=${DJANGO_AWS_SECRET_ACCESS_KEY}
+      - DJANGO_AWS_ACCESS_KEY_ID=${DJANGO_AWS_ACCESS_KEY_ID}
+      - DJANGO_CONFIGURATION=${DJANGO_CONFIGURATION}
+    build: ./
+    command: >
+      bash -c "./manage.py migrate &&
+               ./manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - "redis:/data"
+    ports:
+      - "6019:6379"
+
+  selenium:
+    image: selenium/node-firefox-debug
+    depends_on:
+      - selenium-hub
+    environment:
+      - HUB_PORT_4444_TCP_ADDR=selenium-hub
+      - HUB_PORT_4444_TCP_PORT=4444
+      - NODE_MAX_SESSION=10
+      - NODE_MAX_INSTANCES=4
+    ports:
+      - "5901:5900"
+    links:
+      - selenium-hub
+
+  selenium-hub:
+    image: selenium/hub
+    container_name: selenium-hub
+    ports:
+      - "4444:4444"
+    environment:
+      GRID_MAX_SESSION: 10
+      GRID_BROWSER_TIMEOUT: 3000
+      GRID_TIMEOUT: 3000
+
+volumes:
+  redis: {}
+
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 172.25.0.0/24
+         gateway: 172.25.0.1
